@@ -2,6 +2,10 @@
 
 A Node.js banking transaction system built with Express and MongoDB. This repository provides user authentication, account management, ledger-style transaction handling, and support for system-generated initial fund transactions.
 
+## 🏗️ System Architecture
+
+![Banking Transaction System Architecture](./assets/Banking_Ledger.png)
+
 ## Key Features
 
 - User registration and login with JWT authentication
