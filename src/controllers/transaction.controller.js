@@ -99,53 +99,64 @@ async function createTransaction(req, res){
         })
     }
 
+    let transaction;
+    try {
     /**
      * - 5. Create a new transaction with status PENDING
      */
     const session = await mongoose.startSession()
     session.startTransaction()
 
-    const transaction = await transactionModel.create({
+    const transaction = (await transactionModel.create([{
         fromAccount,
         toAccount,
         amount,
         idempotencyKey,
         status: "PENDING"
-    }, { session })
+    }], { session }))[0]
 
     /**
      * - 6. Create a DEBIT ledger entry for sender's account
      */
-    const debitLedgerEntry = await ledgerModel.create({
+    const debitLedgerEntry = await ledgerModel.create([{
         account: fromAccount,
         amount: amount,
         type: "DEBIT",
         transaction: transaction._id
-    }, { session })
+    }], { session })
+
+    await (() => {
+        return new Promise((resolve) => setTimeout(resolve, 15 * 1000));
+        })()
 
     /**
      * - 7. Create a CREDIT ledger entry for receiver's account
      */
-    const creditLedgerEntry = await ledgerModel.create({
+    const creditLedgerEntry = await ledgerModel.create([{
         account: toAccount,
         amount: amount,
         type: "CREDIT",
         transaction: transaction._id
-    }, { session })
+    }], { session })
 
     /**
      * - 8. Update transaction status to COMPLETED
      */
-    transaction.status = "COMPLETED"
-
-    /**
-     * - 9. Commit MongoDB session to save transaction and ledger entries atomically
-     */
-    await transaction.save({ session })
+    await transactionModel.findOneAndUpdate(
+        {_id: transaction._id},
+        {status: "COMPLETED"},
+        {session}
+    )
 
     await session.commitTransaction()
     session.endSession()
 
+    } catch (error) {
+        
+        return res.status(400).json({
+            message: "Transaction is pending due to some issue, please try again after some time",
+        })
+    }
     /**
      * - 10. Send email notifications about the transaction.
      */
